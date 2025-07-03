@@ -1,0 +1,145 @@
+---
+title: "gradient_hessian_eigen"
+subtitle: "MTH8408"
+author:
+  - name: Atousa Pourfard
+    email: atousa.pourfard@polymtl.ca
+    affiliation:
+      - name: Polytechnique Montréal
+format:
+  pdf:
+    keep-tex: false
+    documentclass: article
+    include-in-header:
+      - text: |
+            \usepackage{eulervm}
+            \usepackage{xspace}
+            \usepackage[francais]{babel}
+    geometry:
+      - margin=1in
+    papersize: letter
+    colorlinks: true
+    urlcolor: blue
+engine: julia
+---
+
+```{julia}
+#| output: false
+using Pkg
+Pkg.add(["Symbolics", "LinearAlgebra", "Plots"])
+Pkg.activate("Basic1_env")
+using LinearAlgebra
+```
+
+$$
+f(x, y) = \frac{(30 - y) \cdot \left(1 + \frac{10^{9}}{(108 - x)^2 \cdot (30 - y)^5}\right)^{\frac{x}{12}}}{x}
+$$
+
+```{julia}
+# ===== Clear environment =====
+using Symbolics, LinearAlgebra, Plots
+gr()  # Backend pour une meilleure intégration graphique
+Plots.closeall()
+
+# ===== Main Script =====
+@variables x y
+
+# Définir l'expression symbolique
+a = ((30 - y) * (1 + ((1e9) / ((108 - x)^2 * (30 - y)^5)))^(x / 12)) / x
+f_expr = a
+f_func = eval(build_function(f_expr, x, y; expression=Val{false}))
+
+# Point d’évaluation
+x_val = 1.0
+y_val = 2.0
+
+# ===== Fonctions Locales =====
+function compute_gradient(f, x, y; step=1e-5)
+    dfdx = (f(x + step, y) - f(x - step, y)) / (2 * step)
+    dfdy = (f(x, y + step) - f(x, y - step)) / (2 * step)
+    return [dfdx; dfdy]
+end
+
+function compute_hessian(f, x, y; step=1e-5)
+    f_xx = (f(x + step, y) - 2 * f(x, y) + f(x - step, y)) / step^2
+    f_yy = (f(x, y + step) - 2 * f(x, y) + f(x, y - step)) / step^2
+    f_xy = (f(x + step, y + step) - f(x + step, y - step) -
+            f(x - step, y + step) + f(x - step, y - step)) / (4 * step^2)
+    return [f_xx f_xy; f_xy f_yy]
+end
+
+# Calculs
+grad = compute_gradient(f_func, x_val, y_val)
+H = compute_hessian(f_func, x_val, y_val)
+eigenvalues = eigvals(H)
+
+# Détermination de la définitude
+if all(eigenvalues .> 0)
+    definiteness = "H is positive definite → local minimum."
+elseif all(eigenvalues .< 0)
+    definiteness = "H is negative definite → local maximum."
+elseif any(eigenvalues .> 0) && any(eigenvalues .< 0)
+    definiteness = "H is indefinite → saddle point."
+else
+    definiteness = "H has zero eigenvalue → inconclusive."
+end
+
+# Formatage des résultats
+a_str = string(f_expr)
+results_text = """
+Function:
+  f(x, y) = $a_str
+
+Point evaluated: (x, y) = ($(round(x_val, digits=2)), $(round(y_val, digits=2)))
+
+Gradient:
+  [$(round(grad[1], digits=6)) ; $(round(grad[2], digits=6))]
+
+Hessian:
+  [$(round(H[1,1], digits=6))  $(round(H[1,2], digits=6));
+   $(round(H[2,1], digits=6))  $(round(H[2,2], digits=6))]
+
+Eigenvalues:
+  [$(round(eigenvalues[1], digits=6)) ; $(round(eigenvalues[2], digits=6))]
+
+$definiteness
+"""
+
+# ====== Tracés ======
+x_vals = range(x_val - 5, x_val + 5, length=100)
+y_vals = range(y_val - 5, y_val + 5, length=100)
+Z = [f_func(x, y) for x in x_vals, y in y_vals]
+
+plt1 = surface(x_vals, y_vals, Z',
+    xlabel="x", ylabel="y", zlabel="f(x, y)",
+    title="Surface Plot of f(x, y)",
+    legend=false,
+    c=:viridis,
+    camera=(45, 45)
+)
+scatter3d!([x_val], [y_val], [f_func(x_val, y_val)], color=:red, markersize=6)
+
+plt2 = plot(legend=false, xticks=false, yticks=false, framestyle=:none, border=:none, grid=false)
+annotate!(plt2, 0.01, 0.5, text(results_text, :left, 10, "Courier"))
+
+
+plot(plt1, plt2, layout=(1, 2), size=(1200, 500))
+
+```
+
+```{julia}
+
+```
+
+```{julia}
+
+```
+
+```{julia}
+
+```
+
+
+```{julia}
+
+```
