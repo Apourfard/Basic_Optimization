@@ -1,3 +1,6 @@
+% Modeling task schedule. Chapitre 1, page 8
+% Model creates agenda and graph of tasks
+
 % ==== Project Task Data ====
 tasks = {
     1, 'Relocate artwork',       4, [];
