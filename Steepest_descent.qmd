@@ -1,0 +1,211 @@
+---
+title: "Steepest descent step"
+subtitle: "MTH8408"
+author:
+  - name: Atousa Pourfard
+    email: atousa.pourfard@polymtl.ca
+    affiliation:
+      - name: Polytechnique Montréal
+format:
+  pdf:
+    keep-tex: false
+    documentclass: article
+    include-in-header:
+      - text: |
+            \usepackage{eulervm}
+            \usepackage{xspace}
+            \usepackage[francais]{babel}
+    geometry:
+      - margin=1in
+    papersize: letter
+    colorlinks: true
+    urlcolor: blue
+engine: julia
+---
+# Problème 4.1, chapitre 4, page 58.
+
+```{julia}
+#| output: false
+using Pkg
+Pkg.activate("Basic2_env")
+Pkg.add("Plots")
+Pkg.add("LinearAlgebra")
+
+using LinearAlgebra
+using Plots
+
+```
+
+$$
+\begin{aligned}
+f(x, y) &= x^2 + y^2 \\
+f(x, y) &= x^2 + 0.5\,y^2
+\end{aligned}
+$$
+
+```{julia}
+# Définir la fonction (1) or (2)
+f(x, y) = x^2 + y^2
+# f(x, y) = x^2 + 0.5 * y^2
+
+# Créer une grille de valeurs
+x = y = -2:0.1:2
+z = [f(xi, yi) for xi in x, yi in y]
+
+# Tracer la surface
+surface(x, y, z,
+    xlabel="x",
+    ylabel="y",
+    zlabel="f(x, y)",
+    title="Surface de f(x, y) = x² + y²", # Changer le titre si la fonction (2) est active 
+    legend=false)
+```
+
+```{julia}
+# Étape de la descente de gradient avec alpha = 1, sans recherche linéaire
+# Définir la fonction (1) or (2)
+f(x, y) = x^2 + y^2
+# f(x, y) = x^2 + 0.5 * y^2
+
+# Créer une grille de valeurs pour x et y
+x_vals = -2:0.1:2
+y_vals = -2:0.1:2
+x, y = [i for i in x_vals, j in y_vals], [j for i in x_vals, j in y_vals]
+z = f.(x, y)
+
+# Point initial
+xk = 1
+yk = 1
+
+# Tracer les courbes de niveau
+contour(x_vals, y_vals, z, levels=20, aspect_ratio=1,
+    xlabel="x", ylabel="y", title="One Step of Steepest Descent without Line search")
+scatter!([xk], [yk], color=:red, label="Point initial", markersize=6)
+
+# Gradient de f(x, y) = [2x, 2y]
+grad = [2 * xk, 2 * yk]
+
+# Étape de la descente de gradient
+alpha = 1.0
+xk1 = xk - alpha * grad[1]
+yk1 = yk - alpha * grad[2]
+
+# Tracer le nouveau point et la direction
+scatter!([xk1], [yk1], color=:blue, label="Point suivant", markersize=6)
+quiver!([xk], [yk], quiver=([xk1 - xk], [yk1 - yk]),
+    color=:black, linewidth=2, label="Direction de descente", arrow=:closed)
+
+plot!(grid=true)
+
+```
+
+```{julia}
+# Steepest Descent with Backtracking Line Search, steps(alpha) commence de 1 vers 0
+# Définir la fonction (1) or (2)
+# f(x, y) = x^2 + y^2
+f(x, y) = x^2 + 0.5 * y^2
+∇f(x, y) = [2x, y] # Changer le gradiant si la fonction (1) est active
+
+# Create a grid of x and y values
+x_vals = -2:0.1:2
+y_vals = -2:0.1:2
+z = [f(x, y) for y in y_vals, x in x_vals]  # note y first (rows), x second (columns)
+
+# Plot contour
+contour(x_vals, y_vals, z, levels=20, aspect_ratio=1,
+    xlabel="x", ylabel="y", title="One Step of Steepest Descent with Backtracking Line Search")
+scatter!([xk], [yk], color=:red, label="Point initial", markersize=6)
+
+# Initial point
+xk = 1.0
+yk = 1.0
+
+# Compute gradient
+g = ∇f(xk, yk)
+
+# Descent direction (negative gradient)
+d = -g
+
+# Backtracking line search parameters
+alpha = 1.0
+rho = 0.5
+c = 1e-4
+
+# Function value at current point
+f_old = f(xk, yk)
+
+# Backtracking line search loop
+while f(xk + alpha * d[1], yk + alpha * d[2]) > f_old + c * alpha * dot(g, d)
+    alpha *= rho
+end
+
+# New point after step
+xk1 = xk + alpha * d[1]
+yk1 = yk + alpha * d[2]
+
+# Plot results
+scatter!([xk1], [yk1], color=:blue, label="Point suivant", markersize=6)
+arrow = quiver!([xk], [yk], quiver=([xk1 - xk], [yk1 - yk]),
+    linecolor=:black, linewidth=2, label="Descent Direction")
+plot!()
+
+```
+
+```{julia}
+# Steepest Descent with Exact Line Search commence de 0
+# Définir la fonction (1) or (2)
+# f(x, y) = x^2 + y^2
+f(x, y) = x^2 + 0.5 * y^2
+
+# Point initial
+xk = 1.0
+yk = 1.0
+
+# gradient components pour la fonction2
+gx = 2 * xk
+gy = yk
+
+# Descent direction = negative gradient components
+dx = -gx
+dy = -gy
+
+# Hessienne 
+H = [2.0 0.0; 0.0 1.0]
+Hx = 2.0
+Hy = 1.0
+
+# Calcul exact du pas α (line search exact)
+# Définir φ(α) = f(xk + α·d)
+phi(α) = f(xk + α * dx, yk + α * dy)
+
+# Chercher α ≥ 0 qui minimise φ(α), en augmentant α depuis 0 jusqu’à montée (ascent)
+# Comme f est quadratique, on peut calculer α exactement (line search exact)
+α = -dot(g, d) / dot(d, H * d)  # minimiseur exact
+
+# Calculate exact step size alpha
+numerateur = gx * dx + gy * dy
+denominateur = dx * (Hx * dx) + dy * (Hy * dy)
+α = -numerateur / denominateur
+
+# Nouveau point après mise à jour : (x, y) ← (x, y) + α·d
+xk1 = xk + α * dx
+yk1 = yk + α * dy
+
+# Définir les variables pour contour
+x_vals = -2:0.1:2
+y_vals = -2:0.1:2
+z = [f(x, y) for y in y_vals, x in x_vals]
+
+# Plot contour
+contour(x_vals, y_vals, z, levels=20, aspect_ratio=1,
+    xlabel="x", ylabel="y", title="One Step of Steepest Descent with exact Line Search")
+scatter!([xk], [yk], color=:red, label="Point initial", markersize=6)
+
+# Plot results
+scatter!([xk1], [yk1], color=:blue, label="Point suivant", markersize=6)
+arrow = quiver!([xk], [yk], quiver=([xk1 - xk], [yk1 - yk]),
+    linecolor=:black, linewidth=2, label="Descent Direction")
+
+```
+
+
