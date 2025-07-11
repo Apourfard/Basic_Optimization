@@ -1,0 +1,180 @@
+---
+title: "Variété d'algos"
+subtitle: "MTH8408"
+author:
+  - name: Atousa Pourfard
+    email: atousa.pourfard@polymtl.ca
+    affiliation:
+      - name: Polytechnique Montréal
+format:
+  pdf:
+    keep-tex: false
+    documentclass: article
+    include-in-header:
+      - text: |
+            \usepackage{eulervm}
+            \usepackage{xspace}
+            \usepackage[francais]{babel}
+    geometry:
+      - margin=1in
+    papersize: letter
+    colorlinks: true
+    urlcolor: blue
+engine: julia
+---
+
+```{julia}
+#| output: false
+using Pkg
+Pkg.activate("labo3_env")
+using LinearAlgebra
+
+```
+
+```{julia}
+# Étape 1)
+# Définir la fonction objectif f et son gradient et hessienne
+A = [3.0 1.0; 1.0 2.0]  # Matrice positive ou négative
+
+# fonction quadratique : f(x) = x' * A * x
+function f(x)
+    return dot(x, A * x)  # f(x) = x' * A * x
+end
+
+# Gradient de la fonction f
+function grad_f(x)
+    return 2 * A * x
+end
+
+# Hessienne de la fonction f
+function hess_f(x)
+    return 2 * A
+end
+
+```
+
+```{julia}
+# Étape 2)
+# Calculer les valeurs propres max et min de la Hessienne
+function eigenvalues_of_hess(H)
+    λ = eigen(H).values
+    return λ[1], λ[end]  # λmax et λmin
+end
+
+# Fonction principale de l'algorithme de Newton
+function newton_method_with_convergence_check(x0, x_star, tol=1e-6, max_iter=100)
+
+    xk = x0
+    for k = 1:max_iter
+        # Calcul de la hessienne et du gradient
+        H = hess_f(xk)
+        g = grad_f(xk)
+        
+        # Calcul de la direction de Newton
+        p = -inv(H) * g
+        
+        # Mise à jour du point
+        xk1 = xk + p
+        
+        # Calcul des valeurs propres max et min de H
+        λmax, λmin = eigenvalues_of_hess(H)
+        
+        # Calcul des valeurs de la fonction objectif
+        fk = f(xk)
+        f_star = f(x_star)
+        fk1 = f(xk1)
+        
+        # Vérification de l'inégalité de convergence
+        rhs = ((λmax - λmin) / (λmax + λmin))^2 * (fk - f_star)
+        
+        # Affichage des résultats à chaque itération
+        println("Itération $k: f(xk) = $fk, f(xk+1) = $fk1, Convergence vérifiée: $(fk1 - f_star <= rhs)")
+        
+        # Critère de convergence (tolérance)
+        if abs(fk1 - f_star) <= tol
+            println("Convergence atteinte.")
+            return xk1
+        end
+        
+        xk = xk1  # Mise à jour du point
+    end
+    println("Nombre maximal d'itérations atteint.")
+    return xk
+end
+
+```
+
+```{julia}
+# Étape 3)
+
+# Initialisation
+x0 = [1.0, 1.0]  # Point initial
+x_star = [0.0, 0.0]  # Point optimal (solution exacte)
+tol = 1e-6  # Tolérance
+max_iter = 100  # Nombre maximum d'itérations
+
+# Lancer l'algorithme
+result = newton_method_with_convergence_check(x0, x_star, tol, max_iter)
+println("Solution trouvée: ", result)
+
+```
+
+```{julia}
+# Étape 4)
+# Exact line search: finds the optimal α along the direction d
+function exact_line_search(xk, d)
+    # Define the one-dimensional function φ(α) = f(xk + α * d)
+    function phi(α)
+        return f(xk + α * d)
+    end
+    
+    # Take the derivative of φ(α) with respect to α
+    function dphi(α)
+        g = grad_f(xk + α * d)  # Gradient at xk + α * d
+        return dot(g, d)  # Derivative of φ(α)
+    end
+    
+    # Minimize φ(α) using derivative-based method (finding critical point)
+    # We solve: dφ/dα = 0, i.e., dot(grad_f(xk + α * d), d) = 0
+    
+    # A simple approach is to use a line search for quadratic functions
+    # In this case, we know the derivative and can solve directly.
+    α_star = -dot(grad_f(xk), d) / dot(d, d)
+    
+    return α_star
+end
+
+# Main gradient descent with exact line search
+function gradient_descent_exact_linesearch(x0, max_iter=100, tol=1e-6)
+    xk = x0
+    for k = 1:max_iter
+        # Compute the gradient at the current point
+        grad = grad_f(xk)
+        
+        # Compute the descent direction (negative gradient for gradient descent)
+        d = -grad
+        
+        # Find the optimal step size α using exact line search
+        α_star = exact_line_search(xk, d)
+        
+        # Update the current point
+        xk1 = xk + α_star * d
+        
+        # Print the progress
+        println("Iteration $k: f(xk) = $(f(xk)), α_star = $α_star, xk1 = $xk1")
+        
+        # Check convergence condition (when the gradient is small enough)
+        if norm(grad) < tol
+            println("Convergence reached!")
+            return xk1
+        end
+        
+        xk = xk1  # Update xk for the next iteration
+    end
+    return xk
+end
+
+# Run the gradient descent with exact line search
+result = gradient_descent_exact_linesearch(x0)
+println("Final solution: ", result)
+```
